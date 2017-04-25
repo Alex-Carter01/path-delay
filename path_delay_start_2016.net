@@ -1,0 +1,120 @@
+* source c:/Users/E151509/Documents/CoolSpice/MyCircuits/flip_flop_path_delay_start.net
+.include "./MOSIS.txt"
+ 
+*********** define parameters *********** 
+.param vdd = 3.3 
+.param Lmin = 0.35u 
+ 
+ 
+***************** define stimulii ********************* 
+vdd vdd 0 vdd 
+
+**** CLOCK 
+Va  clk 0 pwl(0n 0 4n 0 4.1n 3.3 8n 3.3 8.1n 0 12n 0 12.1n 3.3 16n 3.3 16.1n 0 20n 0 20.1n 3.3 24n 3.3 24.1n 0 28.0n 0 28.1n 3.3 32.0n 3.3 32.1n 0 36.0n 0 36.1n 3.3 40.0n 3.3 40.1 0)
+**** Flip-flop data input******
+Vb data 0 pwl(0n 0 15.0n 3.3 15.1n 0 27.0n 0 27.1n 3.3)
+
+ 
+***** define global nodes for use in subcircuits ***** 
+.global vdd 
+
+.subckt ptran gate drain source Wp=1.0u
+Mp1 drain gate source vdd tsmc0p35pmos W=Wp L=Lmin 
++ PD='Wp + 6*Lmin' PS='Wp + 6*Lmin' 
++ AD='3*Wp*Lmin' AS='3*Wp*Lmin' 
+.ends 
+
+.subckt ntran gate drain source Wn=1.0u 
+Mn1 drain gate source 0 tsmc0p35nmos W=Wn L=Lmin 
++ PD='Wn + 6*Lmin' PS='Wn + 6*Lmin' 
++ AD='3*Wn*Lmin' AS='3*Wn*Lmin' 
+.ends 
+
+.subckt inv in out Wp=1.0u Wn=1.0u
+Xpmos in out vdd ptran Wp=Wp
+Xnmos in out 0   ntran Wn=Wn
+.ends
+
+.subckt tgate ngate pgate in out Wp=1.0u Wn=1.0u
+Xpmos pgate in out ptran Wp=Wp
+Xnmos ngate in out ntran Wn=Wn
+.ends
+
+.subckt flip_flop data q clk
+** MASTER D LATCH
+Xinv0 clk clkb inv Wp=4.0u Wn=2.0u
+Xtgate0 clkb clk data n1 tgate Wp=4.0u Wn=2.0u
+Xinv1 n1 n2 inv Wp=8.0u Wn=4.0u
+Xinv3 n2 n3 inv Wp=2.0u Wn=1.0u
+Xtgate1 clk clkb n3 n1 tgate Wp=4.0u Wn=2.0u
+
+** SLAVE D LATCH
+Xtgate2 clk clkb n2 n5 tgate Wp=4.0u Wn=2.0u
+Xinv4 n5 n6 inv Wp=4.0u Wn=2.0u
+Xinv6 n6 n7 inv Wp=2.0u Wn=1.0u
+Xinv5 n5 q  inv Wp=4.0u Wn=2.0u
+Xtgate3 clkb clk n7 n5 tgate Wp=4.0u Wn=2.0u
+.ends
+
+
+
+********* define main circuit ****************** 
+Xff0  data q0 clk flip_flop
+C0  q0  0 0.2p 
+
+*these are the inverters
+Xinv0  q0 n1  inv Wp=4.0u Wn=2.0u
+C1  n1  0 0.2p 
+Xinv1  n1 n2  inv Wp=4.0u Wn=2.0u
+C2  n2  0 0.2p 
+Xinv2 n2 n3 inv Wp=4.0u Wn=2.0u
+C3 n3 0 0.2p
+*these are the new ones
+xinv3 n3 n4 inv Wp=4.0u Wn=2.0u
+C4 n4 0 0.2p
+xinv4 n4 n5 inv Wp=4.0u Wn=2.0u
+C5 n5 0 0.2p
+xinv5 n5 n6 inv Wp=4.0u Wn=2.0u
+C6 n6 0 0.2p
+xinv6 n6 n7 inv Wp=4.0u Wn=2.0u
+C7 n7 0 0.2p
+xinv7 n7 n8 inv Wp=4.0u Wn=2.0u
+C8 n8 0 0.2p
+xinv8 n8 n9 inv Wp=4.0u Wn=2.0u
+C9 n9 0 0.2p
+
+*this is the flip flop dont mess with it
+Xff1   n9 q1 clk flip_flop
+C99 q1  0 0.2p 
+
+
+****** Anlysis Options ********** 
+.tran 5p 42n  
+
+.meas tran tlh_clk_to_q trig v(clk) td=10ns val='vdd/2' cross=1 
++ targ v(q) td=10ns val='vdd/2' cross=1 
+.meas tran thl_clk_to_q trig v(clk) td=18ns val='vdd/2' cross=1 
++ targ v(q) td=18ns val='vdd/2' cross=1 
+
+.meas tran tlh_setup trig v(data) td=11ns val='vdd/2' cross=1 
++ targ v(clk) td=11ns val='vdd/2' cross=1 
+.meas tran thl_setup trig v(data) td=19ns val='vdd/2' cross=1 
+
++ targ v(clk) td=19ns val='vdd/2' cross=1 
+.meas tran thigh_hold trig v(clk) td=11ns val='vdd/2' cross=1 
++ targ v(data) td=11ns val='vdd/2' cross=1 
+.meas tran tlow_hold trig v(clk) td=19.5ns val='vdd/2' cross=1 
++ targ v(data) td=19.5ns val='vdd/2' cross=1 
+
+.end 
+
+.control
+set color0 = white      ;background
+set color1 = black      ;text and grid
+run 
+set xbrushwidth = 3
+*plot v(clk) v(data) v(q0) v(n2) v(q1) ydelta 2
+*plot v(clk) v(data) v(q0) v(n1) v(n2) xdelta 3n ydelta 2 xlimit 27.0n 31.0n 
+plot v(clk) v(n9) v(n8) v(q1) xdelta 2n ydelta 2 xlimit 35.0n 38.0n 
+.endc
+
